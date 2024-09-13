@@ -1,14 +1,16 @@
 import React from "react";
 import { CKEditor } from "@ckeditor/ckeditor5-react";
 import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
-import { makeStyles } from "@material-ui/core/styles";
-import Paper from "@material-ui/core/Paper";
-import Box from "@material-ui/core/Box";
+import { makeStyles } from '@mui/styles';
+
+import { Paper } from '@mui/material';
+import { Box } from '@mui/material';
 import { useEffect } from "react";
-import TextField from "@material-ui/core/TextField";
+
+import { TextField } from '@mui/material';
 import Divider from "@mui/material/Divider";
 import EditIcon from "@mui/icons-material/Edit";
-import { Button } from "@material-ui/core";
+import { Button } from '@mui/material';
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import List from "@mui/material/List";
 import Alert from "@mui/material/Alert";
@@ -16,6 +18,8 @@ import Stack from "@mui/material/Stack";
 import AlertTitle from "@mui/material/AlertTitle";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
+
+//import axios from "axios";
 
 const useStyles = makeStyles({
   root: {
@@ -36,31 +40,47 @@ function Editor(props) {
 
   const [api, setApi] = React.useState();
 
-  var url = "https://jsramverk-editor-afbo19.azurewebsites.net/";
-  // const hostArray = ["localhost", "127.0.0.1"];
+  var url = "http://127.0.0.1:1337";
+  // const hostArray = ["127.0.0.1", "127.0.0.1"];
 
   // if (hostArray.includes(window.location.hostname)) {
-  //   url = "http://localhost:1337";
+  //   url = "http://127.0.0.1:1337";
   // } else {
   //   url = "https://jsramverk-editor-afbo19.azurewebsites.net/";
   // }
 
-  useEffect(() => {
-    fetch(
-      url + "/get"
-      // {
-      //   method: "GET",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      // },
-      // { mode: "cors" }
-    )
-      .then((result) => result.json())
-      .then((result) => setApi(result));
-    setGetDB("");
+
+
+  //axio for api
+ /*  useEffect(() => {
+    axios.get(url + "/get").then((res) => {
+      console.log("info:", res.data);
+      setApi(res.data);
+      setGetDB("");
+    });
+
     return () => {};
-  }, [getDB]);
+  }, [getDB]); */
+
+
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch(`${url}/get`);
+        const data = await response.json();
+        console.log("info:", data);
+        setApi(data);
+        setGetDB("");
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    fetchData();
+
+    return () => {};
+  }, [url,getDB]);
 
   const getEditorValue = () => {
     console.log(editorValue);
@@ -233,6 +253,9 @@ function Editor(props) {
               const data = editor.getData();
               setEditorValue(data);
             }}
+              onError={(error) => {
+    console.error("CKEditor error:", error);
+  }}
           />
         </div>
         <div
@@ -257,7 +280,7 @@ function Editor(props) {
               textAlign: "center",
             }}
           >
-            <h3>Existing files</h3>
+            <h3 data-testid="todo-1">Existing files</h3>
           </div>
 
           <Paper
