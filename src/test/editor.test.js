@@ -1,8 +1,8 @@
 import React from 'react';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-import Editor from '../components/body/editor/Editor'; // Adjust the import path as needed
+import Editor from '../components/body/editor/editor.js'; 
 
 test('get an elemne content by id', () => {
   render(<Editor />);
