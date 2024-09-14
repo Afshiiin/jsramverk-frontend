@@ -19,7 +19,13 @@ import AlertTitle from "@mui/material/AlertTitle";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
 
+import ResizeObserver from 'resize-observer-polyfill';
+
 //import axios from "axios";
+// Ensure ResizeObserver is available
+if (typeof window !== "undefined" && !window.ResizeObserver) {
+  window.ResizeObserver = ResizeObserver;
+}
 
 const useStyles = makeStyles({
   root: {
@@ -171,6 +177,7 @@ function Editor(props) {
         <Box textAlign="center">
           <TextField
             id="outlined-basic"
+            data-testid="inputTitleDoc"
             label="Enter file name"
             variant="standard"
             focused
@@ -245,10 +252,12 @@ function Editor(props) {
             minHeight: "81vh",
             display: "inline-block",
           }}
+          data-testid="valueInsideEditor"
         >
           <CKEditor
             editor={ClassicEditor}
             data={editorValue ? editorValue : ""}
+           
             onChange={(event, editor) => {
               const data = editor.getData();
               setEditorValue(data);
@@ -280,7 +289,7 @@ function Editor(props) {
               textAlign: "center",
             }}
           >
-            <h3 data-testid="todo-1">Existing files</h3>
+            <h3 data-testid="ListOfFiles">Existing files</h3>
           </div>
 
           <Paper

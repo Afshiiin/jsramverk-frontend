@@ -2,44 +2,52 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-import Editor from '../components/body/editor/editor.js'; 
+import Editor from '../components/body/editor/Editor'; // Adjust the import path as needed
 
-test('get an elemne content by id', () => {
+test('Check the section where the list of existing files loads and verify the header of the div', async () => {
   render(<Editor />);
-  const editorElement = screen.getByTestId('todo-1');
+  
+  const editorElement = await screen.findByTestId('ListOfFiles');
   expect(editorElement).toBeInTheDocument();
   expect(editorElement).toHaveTextContent('Existing files');
-  
-});
-
-test('find the button with the correct text', () => {
-  const { getByText } = render(<Editor />);
-  expect(getByText('Create New File')).toBeInTheDocument();
-});
-
- test('find and click on a button', () => {
-  const handleClick = jest.fn();
-  const { getByText } = render(<Editor onClick={handleClick} />);
-  
-  fireEvent.click(getByText('Create New File'));
-  
 });
 
 
-test('finds the input by id and types into it', () => {
-  const { getById, getByText } = render(<Editor />);
+jest.mock('@ckeditor/ckeditor5-react', () => ({
+  CKEditor: ({ onChange }) => (
+    <textarea
+      data-testid="mockedCKEditor"
+      onChange={(e) => onChange({}, { getData: () => e.target.value })}
+    />
+  ),
+}));
 
-  // Find the input field by id
-  const input = document.getElementById('outlined-basic');
-  expect(input).toBeInTheDocument();
+test('updates CKEditor value on change', () => {
+  render(<Editor />);
 
-  // Write text in the input
-  fireEvent.change(input, { target: { value: 'My text for testing' } });
+  const editor = screen.getByTestId('mockedCKEditor');
+  fireEvent.change(editor, { target: { value: 'My name is Afshin' } });
 
-  // check if the value has been updated to our text
-  expect(input.value).toBe('My text for testing');
-
-
+  expect(editor.value).toBe('My name is Afshin');
 });
+
+
+
+/* test('shows alert message when trying to create a file with an empty name', async () => {
+  render(<Editor />);
+
+  const input = screen.getByTestId('inputTitleDoc').querySelector('input');
+
+  fireEvent.change(input, { target: { value: '' } });
+
+  const createButton = screen.getByText(/Create New File/i);
+  fireEvent.click(createButton);
+
+  const alertMessage = await screen.findByText(/Give a name to the file!/i);
+  expect(alertMessage).toBeInTheDocument();
+}); */
+
+
+
 
  

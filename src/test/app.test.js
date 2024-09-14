@@ -1,11 +1,12 @@
 import React from 'react';
-import { render} from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 
-import Editor from '../App.js'; // Adjust the import path as needed
+import Editor from '../app.js'; // Adjust the import path as needed
 
-
-test('Get title', () => {
+test('Check if useEffect works correctly and update the title', async () => {
   render(<Editor />);
-  expect(document.title).toBe('My Editor');
   
+  await waitFor(() => {
+    expect(document.title).toBe('My Editor');
+  });
 });
