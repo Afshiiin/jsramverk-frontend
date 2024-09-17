@@ -2,11 +2,9 @@ import React from "react";
 import { CKEditor } from "@ckeditor/ckeditor5-react";
 import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
 import { makeStyles } from '@mui/styles';
-
 import { Paper } from '@mui/material';
 import { Box } from '@mui/material';
-import { useEffect } from "react";
-
+import { useEffect,useRef } from "react";
 import { TextField } from '@mui/material';
 import Divider from "@mui/material/Divider";
 import EditIcon from "@mui/icons-material/Edit";
@@ -18,8 +16,8 @@ import Stack from "@mui/material/Stack";
 import AlertTitle from "@mui/material/AlertTitle";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
-
 import ResizeObserver from 'resize-observer-polyfill';
+import { io } from "socket.io-client";
 
 //import axios from "axios";
 // Ensure ResizeObserver is available
@@ -57,16 +55,65 @@ function Editor(props) {
 
 
 
-  //axio for api
- /*  useEffect(() => {
-    axios.get(url + "/get").then((res) => {
-      console.log("info:", res.data);
-      setApi(res.data);
-      setGetDB("");
-    });
 
-    return () => {};
-  }, [getDB]); */
+const [socket, setSocket] = React.useState(null);
+const [room, setRoom] = React.useState("");
+/* const [titleRoom, setTitleRoom] = React.useState("");
+const [valueRoom, setValueRoom] = React.useState(""); */
+
+const join_Room = (idRoom) => {
+  if (socket && idRoom) {
+    if (room) {
+      setGetDB("UpdateDatabaseList");
+      socket.emit("leave-room", room); // Leave the current room
+    }
+
+    console.log("Joining room:", idRoom);
+    setGetDB("UpdateDatabaseList");
+    socket.emit("join-room", idRoom); // Join the new room
+    setRoom(idRoom); 
+  }
+};
+
+
+
+const isFromSocket = useRef(false);
+
+const sendMessage = (data) => {
+  if (socket && room && !isFromSocket.current) {
+    socket.emit("sendValuetoSocket", data, room); 
+    setGetDB("UpdateDatabaseList");
+  } else {
+    console.error("Socket is not connected or no room set");
+  }
+};
+
+
+useEffect(() => {
+  const newSocket = io("http://127.0.0.1:1337");
+  setSocket(newSocket);
+
+  newSocket.on("reciveValuefromSocket", (data) => {
+    setGetDB("UpdateDatabaseList");
+    isFromSocket.current = true;  
+    setEditorValue(data);         
+  });
+
+  return () => {
+    if (newSocket) {
+      newSocket.disconnect();
+    }
+  };
+}, []);
+
+
+
+
+useEffect(() => {
+  isFromSocket.current = false;
+}, [editorValue]);
+
+
 
 
 
@@ -254,18 +301,22 @@ function Editor(props) {
           }}
           data-testid="valueInsideEditor"
         >
-          <CKEditor
-            editor={ClassicEditor}
-            data={editorValue ? editorValue : ""}
-           
-            onChange={(event, editor) => {
-              const data = editor.getData();
-              setEditorValue(data);
-            }}
-              onError={(error) => {
+ <CKEditor
+  editor={ClassicEditor}
+  data={editorValue || ""}
+  onChange={(event, editor) => {
+    const data = editor.getData();
+    console.log("CKEditor content changed:", data);
+    if (!isFromSocket.current) {
+      setEditorValue(data);
+      sendMessage(data); 
+    }
+  }}
+  onError={(error) => {
     console.error("CKEditor error:", error);
   }}
-          />
+/>
+
         </div>
         <div
           style={{
@@ -307,17 +358,20 @@ function Editor(props) {
                         marginTop: "3px",
                       }}
                     >
-                      <Button
-                        style={{ textTransform: "none" }}
-                        onClick={() => {
-                          setEditorValue(DBvalue.value);
-                          setFileName(DBvalue.name);
-                          setIdOfDoc(DBvalue._id);
-                          setAlertMessage("");
-                        }}
-                      >
-                        {DBvalue.name}
-                      </Button>
+                    <Button
+                      style={{ textTransform: "none" }}
+                      onClick={() => {
+                        setEditorValue(DBvalue.value); 
+                        setFileName(DBvalue.name);    
+                        setIdOfDoc(DBvalue._id);       
+                        setRoom(DBvalue._id);          
+                        join_Room(DBvalue._id);       
+                        setAlertMessage("");           
+                      }}
+                    >
+                      {DBvalue.name}
+                    </Button>
+
 
                       <Divider variant="middle" />
                     </div>
