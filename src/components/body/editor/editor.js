@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useContext } from "react";
 import { CKEditor } from "@ckeditor/ckeditor5-react";
 import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
 import { makeStyles } from '@mui/styles';
@@ -16,11 +16,16 @@ import Stack from "@mui/material/Stack";
 import AlertTitle from "@mui/material/AlertTitle";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
+import LogoutIcon from '@mui/icons-material/Logout';
 import ResizeObserver from 'resize-observer-polyfill';
 import { io } from "socket.io-client";
+import { useNavigate } from 'react-router-dom';
+import { UserContext } from '../../context/userContext'; 
+import { Select, MenuItem, Checkbox, ListItemText, FormControl, InputLabel } from '@mui/material';
 
-//import axios from "axios";
-// Ensure ResizeObserver is available
+
+
+
 if (typeof window !== "undefined" && !window.ResizeObserver) {
   window.ResizeObserver = ResizeObserver;
 }
@@ -31,7 +36,12 @@ const useStyles = makeStyles({
   },
 });
 function Editor(props) {
+  
+  const { user, setUser } = useContext(UserContext);
   const classes = useStyles();
+  const navigate = useNavigate();
+
+  console.log("User who logged in: ",user)
 
   const [editorValue, setEditorValue] = React.useState("");
 
@@ -41,7 +51,7 @@ function Editor(props) {
   const [getDB, setGetDB] = React.useState("");
 
   //API NODE.JS
-
+  
   const [api, setApi] = React.useState();
 
   var url = "http://127.0.0.1:1337";
@@ -53,8 +63,35 @@ function Editor(props) {
   //   url = "https://jsramverk-editor-afbo19.azurewebsites.net/";
   // }
 
+  useEffect(() => {
+    const token = localStorage.getItem('jwt'); // Get the JWT token from local storage
+    if (!token) {
+      navigate('/'); // Redirect to login if no token is found
+    }
+  }, [navigate]);
+
+const [checkOwnerDelete, setCheckOwnerDelete] = React.useState();
 
 
+if(user) {
+localStorage.setItem('UserLoggedIn', user);
+}
+
+if (!user) {
+  const loggedInUser = localStorage.getItem('UserLoggedIn');
+  if (loggedInUser) {
+    setUser(loggedInUser); 
+  }
+}
+
+//list of users material ui
+const [selecUsersToShare, setSelecUsersToShare] = React.useState([]);
+const [allUsers, setAllUsers] = React.useState([]);
+
+
+const handleChange = (event) => {
+  setSelecUsersToShare(event.target.value);
+};
 
 const [socket, setSocket] = React.useState(null);
 const [room, setRoom] = React.useState("");
@@ -120,9 +157,17 @@ useEffect(() => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch(`${url}/get`);
+        const token = localStorage.getItem('jwt'); 
+        const response = await fetch(`${url}/get`, {
+          headers: {
+            'Authorization': `Bearer ${token}`, // Include the token in the request header
+          },
+        });
+        if (response.status === 401) {
+          navigate('/'); 
+          return; 
+        }
         const data = await response.json();
-        console.log("info:", data);
         setApi(data);
         setGetDB("");
       } catch (error) {
@@ -133,10 +178,43 @@ useEffect(() => {
     fetchData();
 
     return () => {};
-  }, [url,getDB]);
+  }, [url, getDB, navigate]);
+
+//get users 
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const token = localStorage.getItem('jwt'); 
+      const response = await fetch(`${url}/getUsers`, {
+        headers: {
+          'Authorization': `Bearer ${token}`, 
+        },
+      });
+      if (response.status === 401) {
+        return; 
+      }
+      const users = await response.json();
+      setAllUsers(users); 
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  };
+
+  fetchData();
+
+  return () => {};
+}, [url, getDB]);
+
 
   const getEditorValue = () => {
     console.log(editorValue);
+  };
+  
+  const logOut = () => {
+    localStorage.removeItem("jwt");
+    localStorage.removeItem("UserLoggedIn");
+    window.location.assign('/')
+
   };
   const saveValueInDB = () => {
     if (fileName) {
@@ -145,13 +223,14 @@ useEffect(() => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name: fileName, value: editorValue }),
+        body: JSON.stringify({ name: fileName, value: editorValue, owner: user, allowed_users: selecUsersToShare }),
       })
         .then((response) => response.json())
         .then((data) => {
           console.log("Success:", data);
           setAlertMessage("File " + fileName + " created!");
           setGetDB("POST");
+          setSelecUsersToShare([]);
         })
         .catch((error) => {
           console.error("Error:", error);
@@ -173,6 +252,7 @@ useEffect(() => {
           id: idOfDoc,
           name: fileName,
           value: editorValue,
+          allowed_users: selecUsersToShare,
         }),
       })
         .then((response) => response.json())
@@ -180,6 +260,7 @@ useEffect(() => {
           console.log("Success:", data);
           setAlertMessage(fileName + " updated!");
           setGetDB("Edit");
+          setSelecUsersToShare([]);
         })
         .catch((error) => {
           console.error("Error:", error);
@@ -200,6 +281,7 @@ useEffect(() => {
         },
         body: JSON.stringify({
           id: idOfDoc,
+          owner: user,
         }),
       })
         .then((response) => response.json())
@@ -244,26 +326,47 @@ useEffect(() => {
                 }}
                 onClick={putValueInDB}
               >
-                Edit | <EditIcon fontSize="small" />
+                Edit | <EditIcon style={{minWidth: '40px'}} fontSize="small" />
               </Button>
-              <Button
-                style={{
-                  marginTop: "1.1%",
-                  textTransform: "none",
-                  borderLeft: "1px solid black",
-                }}
-                onClick={() => {
-                  deleteValueInDB("");
-                  setEditorValue("");
-                  setFileName("");
-                  setIdOfDoc("");
-                }}
-              >
-                Delete
-                <DeleteForeverIcon fontSize="small" />
-              </Button>
+              {checkOwnerDelete === user && (
+                <Button
+                  style={{
+                    marginTop: "1.1%",
+                    textTransform: "none",
+                    borderLeft: "1px solid black",
+                  }}
+                  onClick={() => {
+                    deleteValueInDB("");
+                    setEditorValue("");
+                    setFileName("");
+                    setIdOfDoc("");
+                  }}
+                >
+                  Delete
+                  <DeleteForeverIcon style={{minWidth: '40px'}} fontSize="small" />
+                </Button>
+              )}
             </>
           ) : null}
+             <FormControl sx={{ m: 0.5, width: 200 }}>
+      <InputLabel id="multiple-checkbox-label">Share the file with ...</InputLabel>
+      <Select
+  labelId="multiple-checkbox-label"
+  multiple
+  value={selecUsersToShare}
+  onChange={handleChange}
+  renderValue={(selected) => selected.join(', ')}
+>
+  {allUsers
+    .filter((option) => option.u_email !== user) // Filter out user who logged in
+    .map((option) => (
+      <MenuItem key={option._id} value={option.u_email}>
+        <Checkbox checked={selecUsersToShare.indexOf(option.u_email) > -1} />
+        <ListItemText primary={option.u_email} />
+      </MenuItem>
+    ))}
+</Select>
+    </FormControl>
           <Button
             style={{
               marginTop: "1.1%",
@@ -277,7 +380,7 @@ useEffect(() => {
               setIdOfDoc("");
             }}
           >
-            Create New File <NoteAddIcon fontSize="small" />
+            Create New File <NoteAddIcon style={{minWidth: '40px'}} fontSize="small" />
           </Button>
           <Button
             style={{
@@ -287,7 +390,17 @@ useEffect(() => {
             }}
             onClick={getEditorValue}
           >
-            Show In Console <FactCheckIcon fontSize="small" />
+            Show In Console <FactCheckIcon style={{minWidth: '40px'}} fontSize="small" />
+          </Button>
+          <Button
+            style={{
+              marginTop: "1.1%",
+              textTransform: "none",
+              borderLeft: "1px solid black",
+            }}
+            onClick={logOut}
+          >
+            Log Out   <LogoutIcon style={{minWidth: '40px'}} fontSize="small" />
           </Button>
         </Box>
       </Paper>
@@ -350,34 +463,38 @@ useEffect(() => {
               textAlign: "center",
             }}
           >
-            <List>
-              {Array.isArray(api)
-                ? api.map((DBvalue) => (
-                    <div
-                      style={{
-                        marginTop: "3px",
-                      }}
-                    >
-                    <Button
-                      style={{ textTransform: "none" }}
-                      onClick={() => {
-                        setEditorValue(DBvalue.value); 
-                        setFileName(DBvalue.name);    
-                        setIdOfDoc(DBvalue._id);       
-                        setRoom(DBvalue._id);          
-                        join_Room(DBvalue._id);       
-                        setAlertMessage("");           
-                      }}
-                    >
-                      {DBvalue.name}
-                    </Button>
-
-
-                      <Divider variant="middle" />
-                    </div>
-                  ))
-                : "There is no saved file to show"}
-            </List>
+      <List>
+  {Array.isArray(api) ? (
+    api
+      .filter((DBvalue) => DBvalue.owner === user|| (DBvalue.allowed_users && DBvalue.allowed_users.includes(user)))
+      .map((DBvalue) => (
+        <div
+          key={DBvalue._id} // Make sure to add a unique key prop
+          style={{
+            marginTop: "3px",
+          }}
+        >
+          <Button
+            style={{ textTransform: "none" }}
+            onClick={() => {
+              setEditorValue(DBvalue.value); 
+              setCheckOwnerDelete(DBvalue.owner)
+              setFileName(DBvalue.name);    
+              setIdOfDoc(DBvalue._id);       
+              setRoom(DBvalue._id);          
+              join_Room(DBvalue._id);       
+              setAlertMessage("");           
+            }}
+          >
+            {user ? DBvalue.name : "Please log in again!"} 
+          </Button>
+          <Divider variant="middle" />
+        </div>
+      ))
+  ) : (
+    "There is no saved file to show"
+  )}
+</List>
           </Paper>
         </div>
       </div>
