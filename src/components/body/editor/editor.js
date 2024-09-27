@@ -41,8 +41,6 @@ function Editor(props) {
   const classes = useStyles();
   const navigate = useNavigate();
 
-  console.log("User who logged in: ",user)
-
   const [editorValue, setEditorValue] = React.useState("");
 
   const [fileName, setFileName] = React.useState("");
@@ -104,8 +102,6 @@ const join_Room = (idRoom) => {
       setGetDB("UpdateDatabaseList");
       socket.emit("leave-room", room); // Leave the current room
     }
-
-    console.log("Joining room:", idRoom);
     setGetDB("UpdateDatabaseList");
     socket.emit("join-room", idRoom); // Join the new room
     setRoom(idRoom); 
@@ -180,8 +176,8 @@ useEffect(() => {
     return () => {};
   }, [url, getDB, navigate]);
 
-//get users 
-useEffect(() => {
+//get users with REST-API 
+/* useEffect(() => {
   const fetchData = async () => {
     try {
       const token = localStorage.getItem('jwt'); 
@@ -203,8 +199,51 @@ useEffect(() => {
   fetchData();
 
   return () => {};
+}, [url, getDB]); */
+
+
+
+// Get only users email of users with GraphQL
+useEffect(() => {
+
+  const fetchData = async () => {
+    try {
+      const response = await fetch(`http://127.0.0.1:1337/graphql`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: `
+             query {
+               users  {
+                 u_email
+                      }
+                    }
+          `,
+        }),
+      });
+      if (response.status === 401) {
+        console.log("Unauthorized access");
+        return; 
+      }
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const { data } = await response.json(); 
+      setAllUsers(data.users); 
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  };
+
+  fetchData();
+
+  return () => {
+  };
 }, [url, getDB]);
 
+console.log("emails: ", allUsers)
 
   const getEditorValue = () => {
     console.log(editorValue);
@@ -300,6 +339,7 @@ useEffect(() => {
     }
   };
 
+
   return (
     <div>
       <Paper className={classes.root}>
@@ -392,6 +432,9 @@ useEffect(() => {
           >
             Show In Console <FactCheckIcon style={{minWidth: '40px'}} fontSize="small" />
           </Button>
+          
+    
+
           <Button
             style={{
               marginTop: "1.1%",
@@ -402,6 +445,10 @@ useEffect(() => {
           >
             Log Out   <LogoutIcon style={{minWidth: '40px'}} fontSize="small" />
           </Button>
+
+          <TextField id="filled-basic" value={user}  InputProps={{
+          readOnly: true, 
+        }} label="Logged in as: " variant="filled" focused />
         </Box>
       </Paper>
       <div>
@@ -419,7 +466,6 @@ useEffect(() => {
   data={editorValue || ""}
   onChange={(event, editor) => {
     const data = editor.getData();
-    console.log("CKEditor content changed:", data);
     if (!isFromSocket.current) {
       setEditorValue(data);
       sendMessage(data); 
